@@ -1,0 +1,32 @@
+{
+  "name": "regional_delivery",
+  "seed": 123,
+  "steps": 6,
+  "start_time": "2000/1/1 12:00:00",
+  "deadline_minutes": [20, 180],
+  "strategies": ["shortest_isl", "orbittransit"],
+  "constellation": {
+    "planes": 36,
+    "satellites_per_plane": 11,
+    "altitude_km": 550,
+    "inclination_degrees": 53
+  },
+  "parameters": {
+    "interval_minutes": 5,
+    "ground_station_capacity_mbps": 20000,
+    "satellite_storage_gb": 100
+  },
+  "stations": [
+    {"name": "GS-A", "lat": 0, "lon": 30},
+    {"name": "GS-B", "lat": 30, "lon": 30},
+    {"name": "GS-C", "lat": -30, "lon": 30},
+    {"name": "GS-D", "lat": 0, "lon": -30}
+  ],
+  "sources": [
+    {"lat": 0, "lon": 20, "tasks_per_step": 4},
+    {"lat": 10, "lon": 25, "tasks_per_step": 4},
+    {"lat": -10, "lon": 30, "tasks_per_step": 4},
+    {"lat": 30, "lon": 30, "tasks_per_step": 4},
+    {"lat": -30, "lon": 20, "tasks_per_step": 4}
+  ]
+}

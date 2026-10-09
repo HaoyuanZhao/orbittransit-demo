@@ -1,0 +1,121 @@
+# Model and configuration
+
+## Scenario inputs
+
+Each JSON file contains the complete input; there are no dependent data files.
+The CLI resolves the path supplied to `--config` from the working directory and
+does not assume the repository is the current directory. All geographic coordinates
+are in degrees. Only one synthetic constellation shell is modeled.
+
+| Field | Meaning |
+| --- | --- |
+| `constellation` | Planes, satellites per plane, altitude in km and inclination in degrees |
+| `stations` | Named ground stations with `lat` and `lon` |
+| `sources` | Traffic locations with `lat`, `lon` and `tasks_per_step` |
+| `parameters` | Link, ground station, storage and battery budgets |
+| `steps`, `start_time` | Number of planning intervals and UTC starting time |
+| `deadline_minutes` | Inclusive range used to sample task deadlines relative to each planning time |
+| `seed` | Seed for a local workload RNG; independent of routing decisions |
+| `strategies` | `shortest_isl`, `orbittransit`, or both |
+
+The first interval is evaluated one interval after `start_time`. The default
+start date is an artificial epoch, not a historical satellite snapshot.
+An empty station list is valid and yields explicit failed tasks. Invalid sizes,
+non-finite parameters and unknown strategy names are rejected.
+
+### Resource units
+
+`Parameters` in `config.py` retains the research implementation's defaults.
+Bandwidths are in Mbps, powers in W, battery capacity in Wh, storage in decimal GB,
+and time intervals in minutes. Data volumes inside the simulator are in Mbit.
+
+For interval length `t` minutes and link bandwidth `b` Mbps, one task carries
+`b × t × 60` Mbit. The default is 300,000 Mbit (37.5 GB) per task. A ground station
+with capacity `g` Mbps admits at most `floor(g / b)` whole tasks in an interval.
+The default 100 GB satellite storage is 800,000 Mbit.
+
+This is a chunk-based planning model. Tasks are not packet streams or a model
+of image acquisition, processing or onboard computation.
+
+## Orbit and communication opportunities
+
+The existing generator initializes near-circular synthetic orbits with SGP4/WGS72
+and creates TLEs in memory. PyEphem propagates them for visibility and distance
+calculations. Alternating planes use a half-slot phase offset, as in the original
+generator.
+
+The ISL graph connects successive satellites within a plane and corresponding
+slots in neighboring planes, with wraparound. Edges beyond `max_isl_km` are removed.
+Ground contacts require elevation above `min_elevation_degrees` and range below
+`max_ground_link_km`. Routing uses hop count, not weighted physical path length.
+No weather, antenna contention or time-varying radio-rate model is included.
+
+For orbital carrying, a representative satellite in each plane is sampled once
+per minute over one orbital period. The sequence is phase-shifted to approximate
+the other satellites' opportunities. This is an approximation of future contacts,
+not an individual high-resolution access calculation for every satellite.
+
+## Delivery policies
+
+**Shortest ISL** assigns the nearest station by geodesic distance. It finds the
+fewest-hop route between currently visible ingress and egress satellites.
+The predicted transfer duration is one interval.
+
+**OrbitTransit** first assigns tasks to nearby stations under an 80% admission
+target. Excess demand is diffused to stations found through orbital contact maps,
+searching neighboring planes in increasing hop count. For each task it considers
+orbital carrying that meets the deadline, and falls back to the current ISL route.
+A fixed-power energy proxy selects between feasible carrying and ISL candidates.
+Capacity-aware assignment can therefore change the destination station as well
+as the route. The admission target is not a guarantee when connectivity or station
+capacity is unavailable; these cases remain visible in task statuses.
+
+Every candidate path must use edges present in the current ISL graph. Future ISL
+changes during carrying are not simulated. For multi-satellite carrying, storage
+residence is approximated by the waiting time divided by the number of satellites
+in the path, retaining the original model's average-residence assumption.
+
+The selected plan must meet the task deadline, pass per-interval station admission,
+and fit satellite storage and battery budgets. Storage and energy are committed
+together after these checks, so rejected and unselected plans do not reserve
+resources. Expired storage reservations are released before the next interval;
+batteries receive a capped fixed-power charge after each interval.
+
+Ground station demand and admission are calculated for the current planning
+batch. There is no queue of future arrivals, congestion control or cross-interval
+ground-station backlog. Reported station load is **assigned demand**, not measured
+traffic that physically arrived at that time.
+
+## Output semantics
+
+- A successful task is a **feasible predicted delivery plan**, not an observed completion event.
+- `scheduled_fraction` divides successful plans by all input tasks, including failures.
+- `mean_delivery_minutes_successful` averages predicted delivery duration over successful plans only. It is blank when none succeed.
+- `assigned_load_ratio` divides assigned chunk volume by station capacity in the same interval; values above one indicate excess demand.
+- `scheduled_tasks` at a station counts plans that pass all checks, not just station admission.
+- `isl_hops_successful` sums the edge counts of successful routes.
+- `modeled_energy_wh` uses fixed transponder and disk powers over a planning interval. Each satellite on a multi-satellite path is charged an ISL interval; endpoints also pay ground-link costs. Carrying adds disk IO costs. It is a model cost, not hardware telemetry.
+- `resources.csv` captures storage and battery state before the interval's charging step.
+
+The planning horizon is 30 minutes by default, while individual predictions can
+look beyond that horizon within their deadlines. The simulator does not run an
+event-driven delivery process until every predicted arrival. A success should
+therefore be read as feasible under this model.
+
+The policies can schedule different subsets of tasks, so their successful-task
+latency means and total energy values have different success counts. The default
+figure shows the counts and station demand alongside latency. Its six intervals
+and one fixed seed demonstrate behavior; they are not a statistical performance
+study or a reproduction of paper results.
+
+## Reproduction
+
+`run.json` stores the resolved configuration, package versions, a workload hash,
+and a hash of the Python source files. It excludes machine paths and host details.
+Task deadlines are generated before either strategy runs, and each strategy starts
+from a fresh constellation/resource state. The capacity variant changes only
+`ground_station_capacity_mbps` and preserves the workload hash.
+
+The committed figures can be checked against the CSV summaries and matching
+run metadata in `docs/figures`. A saved run can be replotted directly from its CSV
+tables with `python -m orbittransit.reporting <directory>`.

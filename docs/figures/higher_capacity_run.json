@@ -1,0 +1,101 @@
+{
+  "version": "0.1.0",
+  "authority": "demonstration; not full paper reproduction",
+  "config": {
+    "name": "regional_delivery",
+    "stations": [
+      {
+        "name": "GS-A",
+        "lat": 0,
+        "lon": 30
+      },
+      {
+        "name": "GS-B",
+        "lat": 30,
+        "lon": 30
+      },
+      {
+        "name": "GS-C",
+        "lat": -30,
+        "lon": 30
+      },
+      {
+        "name": "GS-D",
+        "lat": 0,
+        "lon": -30
+      }
+    ],
+    "sources": [
+      {
+        "lat": 0,
+        "lon": 20,
+        "tasks_per_step": 4
+      },
+      {
+        "lat": 10,
+        "lon": 25,
+        "tasks_per_step": 4
+      },
+      {
+        "lat": -10,
+        "lon": 30,
+        "tasks_per_step": 4
+      },
+      {
+        "lat": 30,
+        "lon": 30,
+        "tasks_per_step": 4
+      },
+      {
+        "lat": -30,
+        "lon": 20,
+        "tasks_per_step": 4
+      }
+    ],
+    "parameters": {
+      "interval_minutes": 5,
+      "ground_station_capacity_mbps": 20000,
+      "link_bandwidth_mbps": 1000.0,
+      "min_elevation_degrees": 25.0,
+      "max_ground_link_km": 1500.0,
+      "max_isl_km": 5014.0,
+      "satellite_storage_gb": 100,
+      "battery_capacity_wh": 83.33,
+      "solar_charge_w": 120.0,
+      "ground_link_power_w": 45.0,
+      "isl_power_w": 35.0,
+      "disk_io_power_w": 3.0,
+      "station_admission_fraction": 0.8
+    },
+    "constellation": {
+      "planes": 36,
+      "satellites_per_plane": 11,
+      "altitude_km": 550,
+      "inclination_degrees": 53
+    },
+    "seed": 123,
+    "steps": 6,
+    "start_time": "2000/1/1 12:00:00",
+    "deadline_minutes": [
+      20,
+      180
+    ],
+    "strategies": [
+      "shortest_isl",
+      "orbittransit"
+    ]
+  },
+  "config_sha256": "6ddd8d9f88e801a09185100fe5974a0cf67ddd26906927708ceded83fe7fd6f8",
+  "workload_sha256": "6aa90e5746e737309f0e8bca72a048a355177845730f678ba87338612630bc76",
+  "source_sha256": "0e7ccf2631dbcb398aa837c53a1ddd98c6f2da4d44d94e9f1e114cd493288858",
+  "dependencies": {
+    "ephem": "4.1.5",
+    "sgp4": "2.23",
+    "astropy": "6.1.4",
+    "networkx": "3.3",
+    "geopy": "2.4.1",
+    "numpy": "2.2.4",
+    "pandas": "2.2.3",
+    "matplotlib": "3.9.4"
+  }
+}

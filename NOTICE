@@ -1,0 +1,14 @@
+OrbitTransit
+Copyright (c) 2025-2026 Haoyuan Zhao
+
+The orbital models, delivery policies, simulation and experiment analysis are
+adapted from the author's original OrbitTransit research implementation.
+
+The TLE international-designator helper and satellite-distance calculation in
+src/orbittransit/orbit.py follow Hypatia's satgenpy implementation:
+https://github.com/snkas/hypatia/tree/master/satgenpy
+
+Those Hypatia-derived portions are Copyright (c) 2020 ETH Zurich and licensed
+under the MIT license. The complete upstream copyright and permission notice
+is retained in third_party/Hypatia-LICENSE. That notice applies to the attributed
+portions and does not assign a project-wide license to the original code.
