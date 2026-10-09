@@ -1,138 +1,79 @@
 # OrbitTransit
 
-**Satellite data delivery through orbital motion and traffic diffusion.**
+Python code for satellite data delivery using orbital motion and inter-satellite links.
 
-OrbitTransit is a Python simulator for delay-tolerant delivery over a moving
-satellite network. It models orbital visibility, inter-satellite links, ground
-station capacity and satellite resources, then compares delivery strategies on
-the same traffic workload.
+[Paper](https://doi.org/10.1145/3745756.3809199) · [Run the example](#quick-start) · [Model notes](docs/model.md) · [Tests](#tests)
 
-The central idea is that data can remain on a moving satellite until a suitable
-ground station becomes reachable. When necessary, it can move to a neighboring
-orbital plane or use an immediate ISL route. Choosing where and how to deliver
-data changes both the delivery time and the demand placed on ground stations.
+> This is a simplified version of OrbitTransit, not the full implementation evaluated in our MobiSys 2026 paper. The examples use synthetic workloads and simplified routing and resource accounting; they do not reproduce the paper's results.
 
-## From scenario to result
+Rather than forwarding all data immediately through inter-satellite links (ISLs), a satellite can carry it until a suitable ground station comes into view. ISLs allow data to move between orbital planes when carrying alone is not enough. The simulator compares this approach with nearest-station assignment and shortest-hop ISL routing.
 
-```mermaid
-flowchart LR
-    A["Scenario JSON<br/>Constellation, stations, traffic"] --> B["Orbit propagation<br/>Visibility and ISL topology"]
-    B --> C["Delivery planning<br/>Station assignment and routing"]
-    C --> D["Resource checks<br/>Deadline, storage, energy, capacity"]
-    D --> E["Results<br/>CSV tables and comparison figure"]
-```
+<p align="center">
+  <img src="docs/figures/paper_delivery_overview.png" alt="Delivery modes from the OrbitTransit paper: bent-pipe, ISL, and pickup-carry-offload delivery." width="820">
+</p>
 
-The included scenario has 396 synthetic satellites, four ground stations and
-20 traffic tasks per interval. Six five-minute intervals produce 120 tasks per
-strategy. Ground stations and traffic sources are fixed geographic coordinates;
-all deadlines are generated once with seed 123 and shared by both strategies.
+*Delivery modes illustrated in the paper ([original figure](docs/figures/paper_delivery_overview.pdf)). This is a conceptual illustration, not output from the demo.*
 
-| Strategy | Ground station assignment | Delivery choice |
-| --- | --- | --- |
-| Shortest ISL | Nearest station | Fewest-hop path through the current ISL graph |
-| OrbitTransit | Capacity-aware assignment with orbital traffic diffusion | Orbital carrying or an ISL route, subject to deadline and resource checks |
+## Quick start
 
-This comparison includes both station assignment and routing.
-
-![Delivery plans, estimated delivery time and ground station demand](docs/figures/demo.png)
-
-In this small scenario, nearest-station assignment overloads GS-A and schedules
-108 of 120 tasks. OrbitTransit spreads demand and schedules all 120, with a longer
-mean estimated delivery time because some plans wait for orbital motion. The
-dashed line marks configured station capacity. These are results for this
-synthetic scenario, not measurements of an operational constellation.
-
-## Run the example
-
-Use **Python 3.12**. From the repository root, on Linux or macOS:
+Use **Python 3.12**, preferably in a virtual environment. From the repository root:
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m pip install -e ".[dev]"
 python -m orbittransit --config examples/demo.json --output results/demo
 ```
 
-The simulation takes a few seconds on the development machine. Dependency
-installation is separate. The scenario is self-contained: no private dataset,
-external solver or network access is required once dependencies are installed.
-The output directory must be new or empty.
+The example needs no external dataset or solver. Choose a new or empty output directory for each run.
 
-| Output | Contents |
-| --- | --- |
-| `comparison.png`, `comparison.pdf` | The three-panel result figure |
-| `tasks.csv` | Every input task, selected plan, deadline and success/failure status |
-| `stations.csv` | Assigned demand and scheduled tasks at each ground station |
-| `resources.csv` | Satellite storage and battery state after each interval |
-| `summary.csv` | Per-strategy totals and estimated delivery time |
-| `run.json` | Resolved configuration, dependency versions and input/source hashes |
-
-To regenerate the figure from the saved CSV tables:
-
-```bash
-python -m orbittransit.reporting results/demo
+```text
+results/demo/
+├── summary.csv       # Totals and estimated delivery time for each strategy
+├── tasks.csv         # Task deadlines, selected paths and planning outcomes
+├── stations.csv      # Assigned demand and scheduled tasks at each station
+├── resources.csv     # Satellite storage and battery state
+├── run.json          # Configuration, versions and input/source hashes
+├── comparison.png    # Local result plot
+└── comparison.pdf
 ```
 
-## Change the ground station capacity
+A scheduled task means the simulator found a feasible delivery plan. Delivery times are predictions, not observed completion times; ground-station load is assigned demand, not measured arrivals. See [metric definitions](docs/model.md#output-semantics) before interpreting the results.
 
-The second configuration changes only station capacity, from 10 to 20 Gbps:
+## Example: ground-station capacity
+
+The [default scenario](examples/demo.json) has **396 satellites**, four ground stations and 120 tasks per strategy over six five-minute intervals. Both strategies receive the same tasks and deadlines.
+
+| Strategy | Station selection | Delivery |
+| :--- | :--- | :--- |
+| `shortest_isl` | Nearest station | Fewest-hop path in the current ISL graph |
+| `orbittransit` | Capacity-aware assignment with orbital traffic diffusion | Carrying or an ISL path, checked against deadlines and resource budgets |
+
+Station selection and routing both change in this comparison; it is not a routing-only experiment.
+
+To repeat the scenario with station capacity increased from **10 to 20 Gbps**:
 
 ```bash
 python -m orbittransit --config examples/higher_capacity.json --output results/higher_capacity
 ```
 
-| Station capacity | Shortest ISL: scheduled / input | OrbitTransit: scheduled / input |
-| --- | --- | --- |
-| 10 Gbps | 108 / 120 | 120 / 120 |
-| 20 Gbps | 118 / 120 | 120 / 120 |
+The two configurations differ only in station capacity. Compare their `summary.csv` and `stations.csv` files to see how capacity affects feasible plans and assigned demand. Other parameters, including station locations, traffic sources and satellite budgets, can be changed in the JSON files.
 
-Higher station capacity removes the baseline's overload failures; its two
-remaining failures are battery-budget constraints. Both configurations use the
-same workload. The [second figure](docs/figures/higher_capacity.png) and saved
-summaries are included alongside the default result.
+## Code and model
 
-You can also edit station coordinates, traffic locations and counts, constellation
-parameters, or resource budgets in the JSON configuration. The units are explicit
-in parameter names. See [the model and configuration notes](docs/model.md) for
-the supported inputs and metric definitions.
+[`orbit.py`](src/orbittransit/orbit.py) builds the constellation, ISL graph and contact maps. [`allocation.py`](src/orbittransit/allocation.py) selects ground stations; [`routing.py`](src/orbittransit/routing.py) constructs delivery candidates. [`simulation.py`](src/orbittransit/simulation.py) runs each planning interval and records the results.
 
-## Implementation and checks
+The [model notes](docs/model.md) describe the assumptions, resource units and differences from the paper, including the scheduling and evaluation components omitted from this version.
 
-The package separates [orbital geometry](src/orbittransit/orbit.py),
-[station allocation](src/orbittransit/allocation.py) and
-[routing](src/orbittransit/routing.py) from the scenario runner. Routing candidates
-are evaluated without changing satellite state. The selected plan is checked
-before its storage and energy reservations are committed.
+## Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Tests cover expected paths on a small topology, disconnected or unavailable
-links, deadline fallback, storage and energy limits, station admission, unchanged
-state for unselected candidates, and reproducible scenario inputs. GitHub Actions
-runs the tests and both examples on Python 3.12.
+Tests check small-topology routes, unreachable links, deadlines, storage and battery limits, station admission, and repeatable scenario inputs. GitHub Actions is configured to run the tests and both examples on Python 3.12.
 
-## Model scope
+## Paper
 
-- A single synthetic circular-orbit shell and a distance-filtered ISL grid.
-- Equal-size traffic chunks originating at configured geographic points.
-- One-minute sampled orbital contact maps and five-minute default planning intervals.
-- Predicted delivery plans, with simplified storage, energy and per-interval station capacity accounting.
+Haoyuan Zhao, Long Chen, Yi Ching Chou, Hao Fang, and Jiangchuan Liu.  
+[**OrbitTransit: Traffic Delivery and Diffusion for Earth Observation via Satellite Mobility.**](https://doi.org/10.1145/3745756.3809199) ACM MobiSys, 2026.
 
-The simulator does not execute packet-level protocols or replay measured network
-traffic. Orbital carrying estimates and resource accounting are explained in
-[the model notes](docs/model.md). The examples are a small reproducible extraction
-of the research implementation, rather than a full paper experiment suite.
-
-## Background and attribution
-
-The OrbitTransit models, delivery strategies, simulator and experiment analysis
-were developed by **Haoyuan Zhao**. This repository packages the existing work
-into independent examples with synthetic inputs.
-
-The TLE designator and satellite-distance helpers follow
-[Hypatia's satgenpy](https://github.com/snkas/hypatia/tree/master/satgenpy),
-copyright ETH Zurich, under its MIT license. Their copyright and permission notice
-are retained in [third_party/Hypatia-LICENSE](third_party/Hypatia-LICENSE).
-See [NOTICE](NOTICE) for the attribution boundary.
+The figure above is reproduced from the paper; its source and attribution are recorded in [NOTICE](NOTICE). The orbital helpers include code derived from [Hypatia's satgenpy](https://github.com/snkas/hypatia/tree/master/satgenpy), with its license retained in [third_party/Hypatia-LICENSE](third_party/Hypatia-LICENSE).

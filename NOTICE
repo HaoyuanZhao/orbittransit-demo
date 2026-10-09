@@ -12,3 +12,19 @@ Those Hypatia-derived portions are Copyright (c) 2020 ETH Zurich and licensed
 under the MIT license. The complete upstream copyright and permission notice
 is retained in third_party/Hypatia-LICENSE. That notice applies to the attributed
 portions and does not assign a project-wide license to the original code.
+
+Paper figure
+------------
+docs/figures/paper_delivery_overview.pdf is an unchanged copy of
+images/intro_overview.pdf from the author-provided camera-ready source of:
+
+Haoyuan Zhao, Long Chen, Yi Ching Chou, Hao Fang, and Jiangchuan Liu.
+OrbitTransit: Traffic Delivery and Diffusion for Earth Observation via
+Satellite Mobility. ACM MobiSys, 2026.
+https://doi.org/10.1145/3745756.3809199
+
+The PNG with the same stem is a raster rendering for the README; no diagram
+content has been added, removed or relabeled. The paper's camera-ready source
+specifies Creative Commons Attribution 4.0 (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+This figure attribution does not assign a license to the rest of this repository.
